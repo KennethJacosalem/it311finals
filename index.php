@@ -1,13 +1,27 @@
 <?php
+// Include database connection
 include "D:/xampp/htdocs/it311finals/db.php";
 
+// Set content type to JSON for API responses
 header("Content-Type: application/json");
 
+// This is the API key used to give authorization
+define("API_KEY", "Idol-sirMhezel");
+
+// Validate the API key
+if (!isset($_SERVER['HTTP_X_API_KEY']) || $_SERVER['HTTP_X_API_KEY'] !== API_KEY) {
+    http_response_code(401);
+    echo json_encode(["message" => "Unauthorized. Invalid API key."]);
+    exit;
+}
+
+// Get the request method and parameters
 $requestMethod = $_SERVER["REQUEST_METHOD"];
 $student_id = isset($_GET['id']) ? intval($_GET['id']) : null;
 $searchTerm = isset($_GET['search']) ? $_GET['search'] : null;
 $course_id = isset($_GET['course_id']) ? intval($_GET['course_id']) : null;
 
+// Handle API requests based on method
 switch ($requestMethod) {
     case 'POST':
         createStudent();
@@ -44,8 +58,12 @@ switch ($requestMethod) {
         echo json_encode(["message" => "Method not allowed."]);
 }
 
+// Close the database connection
 mysqli_close($conn);
 
+/**
+ * Create a new student record in the database.
+ */
 function createStudent() {
     global $conn;
 
@@ -56,12 +74,14 @@ function createStudent() {
     $birthdate = $data['birthdate'];
     $course_id = $data['course_id'];
 
+    // Validate required fields
     if (empty($firstname) || empty($lastname) || empty($email) || empty($birthdate) || empty($course_id)) {
         http_response_code(400);
         echo json_encode(["message" => "All fields are required."]);
         return;
     }
 
+    // Check for duplicate email
     $email = mysqli_real_escape_string($conn, $email);
     $sqlCheck = "SELECT * FROM students WHERE email = '$email'";
     $resultCheck = mysqli_query($conn, $sqlCheck);
@@ -71,6 +91,7 @@ function createStudent() {
         return;
     }
 
+    // Insert new student record
     $sql = "INSERT INTO students (firstname, lastname, email, birthdate, course_id) 
             VALUES ('$firstname', '$lastname', '$email', '$birthdate', $course_id)";
     if (mysqli_query($conn, $sql)) {
@@ -82,6 +103,9 @@ function createStudent() {
     }
 }
 
+/**
+ * Retrieve all student records.
+ */
 function getStudents() {
     global $conn;
 
@@ -99,6 +123,9 @@ function getStudents() {
     }
 }
 
+/**
+ * Retrieve a specific student record by ID.
+ */
 function getStudent($id) {
     global $conn;
 
@@ -116,21 +143,18 @@ function getStudent($id) {
     }
 }
 
+/**
+ * Search for students by name or email.
+ */
 function searchStudents($searchTerm) {
     global $conn;
 
-    // Sanitize the input to prevent SQL injection
     $searchTerm = mysqli_real_escape_string($conn, $searchTerm);
-
-    // Search by firstname and email
-    $sql = "
-        SELECT s.id, s.firstname, s.lastname, s.email, s.birthdate, c.course_name 
-        FROM students s 
-        JOIN courses c ON s.course_id = c.course_id 
-        WHERE s.firstname LIKE '$searchTerm%' 
-           OR s.email LIKE '$searchTerm%'
-    ";
-
+    $sql = "SELECT s.id, s.firstname, s.lastname, s.email, s.birthdate, c.course_name 
+            FROM students s 
+            JOIN courses c ON s.course_id = c.course_id 
+            WHERE s.firstname LIKE '$searchTerm%' 
+               OR s.email LIKE '$searchTerm%'";
     $result = mysqli_query($conn, $sql);
 
     if ($result) {
@@ -142,8 +166,9 @@ function searchStudents($searchTerm) {
     }
 }
 
-
-
+/**
+ * Filter students by course ID.
+ */
 function filterStudentsByCourse($course_id) {
     global $conn;
 
@@ -162,6 +187,9 @@ function filterStudentsByCourse($course_id) {
     }
 }
 
+/**
+ * Update an existing student record.
+ */
 function updateStudent($id) {
     global $conn;
 
@@ -172,12 +200,14 @@ function updateStudent($id) {
     $birthdate = $data['birthdate'];
     $course_id = $data['course_id'];
 
+    // Validate required fields
     if (empty($firstname) || empty($lastname) || empty($email) || empty($birthdate) || empty($course_id)) {
         http_response_code(400);
         echo json_encode(["message" => "All fields are required."]);
         return;
     }
 
+    // Update student record
     $sql = "UPDATE students 
             SET firstname = '$firstname', lastname = '$lastname', email = '$email', 
                 birthdate = '$birthdate', course_id = $course_id 
@@ -195,6 +225,9 @@ function updateStudent($id) {
     }
 }
 
+/**
+ * Delete a student record by ID.
+ */
 function deleteStudent($id) {
     global $conn;
 
